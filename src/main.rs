@@ -1,8 +1,13 @@
+mod state;
+mod operations;
+mod buttons;
 use color_eyre::Result;
 use crossterm::event::{self, Event};
 use ratatui::{DefaultTerminal, Frame};
 
 fn main() -> Result<()> {
+    let calc_state = state::CalcState::new();
+    println!("{:#?}", calc_state);
     color_eyre::install()?;
     let terminal = ratatui::init();
     let result = run(terminal);
