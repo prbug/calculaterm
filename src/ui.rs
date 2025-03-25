@@ -2,7 +2,7 @@ use crate::buttons::{Button, ButtonType};
 use crate::operations::Operator;
 use crate::state::CalcState;
 use color_eyre::Result;
-use crossterm::event;
+use crossterm::event::{self, KeyCode};
 use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -16,6 +16,7 @@ pub struct App {
     title: String,
     state: CalcState,
     exit: bool,
+    selected_button: Option<ButtonType>,
 }
 
 impl App {
@@ -24,7 +25,29 @@ impl App {
             title: " Calculaterm ".to_string(),
             state: CalcState::default(),
             exit: false,
+            selected_button: None,
         }
+    }
+
+    fn grid_location(button_type: &ButtonType) -> Option<(u16, u16)> {
+        match button_type {
+            ButtonType::Numeric(value) => Some((2, (*value).into())),
+            ButtonType::Operator(operator) => match operator {
+                Operator::Add => Some((3, 3)),
+                Operator::Subtract => Some((2, 3)),
+                Operator::Multiply => Some((1, 3)),
+                Operator::Divide => Some((0, 3)),
+            },
+            ButtonType::Clear => Some((0, 0)),
+            ButtonType::Invert => Some((0, 1)),
+            ButtonType::Percent => Some((0, 2)),
+            ButtonType::Decimal => Some((4, 1)),
+            ButtonType::Calculate => Some((4, 2)),
+        }
+    }
+
+    fn key_press_event(label: char) -> event::KeyEvent {
+        event::KeyEvent::new(event::KeyCode::Char(label), event::KeyModifiers::NONE)
     }
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
@@ -37,9 +60,17 @@ impl App {
                 event::Event::Key(key_event) if key_event == exit_event => {
                     self.exit = true;
                 }
-                _ => {
-                    // Handle other events if needed
+                event::Event::Key(key_event) => {
+                    self.selected_button = match key_event.code {
+                        KeyCode::Enter => Some(ButtonType::Calculate),
+                        KeyCode::Char(c) => Button::button_type(c),
+                        _ => None,
+                    };
+                    if let Some(button_type) = self.selected_button {
+                        button_type.press(&mut self.state);
+                    };
                 }
+                _ => (),
             }
         }
         Ok(())
