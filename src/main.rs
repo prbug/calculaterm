@@ -1,29 +1,15 @@
-mod state;
-mod operations;
 mod buttons;
+mod operations;
+mod state;
+mod ui;
 use color_eyre::Result;
-use crossterm::event::{self, Event};
-use ratatui::{DefaultTerminal, Frame};
 
 fn main() -> Result<()> {
     let calc_state = state::CalcState::new();
     println!("{:#?}", calc_state);
     color_eyre::install()?;
-    let terminal = ratatui::init();
-    let result = run(terminal);
+    let mut terminal = ratatui::init();
+    let app_result = ui::App::default().run(&mut terminal);
     ratatui::restore();
-    result
-}
-
-fn run(mut terminal: DefaultTerminal) -> Result<()> {
-    loop {
-        terminal.draw(render)?;
-        if matches!(event::read()?, Event::Key(_)) {
-            break Ok(());
-        }
-    }
-}
-
-fn render(frame: &mut Frame) {
-    frame.render_widget("hello world", frame.area());
+    app_result
 }

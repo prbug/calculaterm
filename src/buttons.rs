@@ -2,7 +2,7 @@ use crate::operations::Operator;
 use crate::state::CalcState;
 
 #[derive(Debug, Clone, Copy)]
-enum ButtonType {
+pub enum ButtonType {
     Operator(Operator),
     Calculate,
     Decimal,
@@ -12,14 +12,13 @@ enum ButtonType {
     Numeric(u8),
 }
 
-struct Button {
+pub struct Button {
     button_type: ButtonType,
-    label: char,
-    widget: todo!(),
+    pub label: char,
 }
 
 impl Button {
-    fn new(button_type: ButtonType) -> Self {
+    pub fn new(button_type: ButtonType) -> Self {
         let label = match button_type {
             ButtonType::Operator(op) => match op {
                 Operator::Add => '+',
@@ -43,7 +42,7 @@ impl Button {
             ButtonType::Numeric(n) => state.update_input((n + b'0') as char),
             ButtonType::Operator(op) => state.update_operator(op),
             ButtonType::Decimal => state.update_input('.'),
-            ButtonType::Calculate =>  state.calculate(),
+            ButtonType::Calculate => state.calculate(),
             ButtonType::Percent => todo!(),
             ButtonType::Invert => state.invert_input(),
         }
