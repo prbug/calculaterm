@@ -60,12 +60,28 @@ impl CalcState {
         }
     }
 
+    pub fn backspace(&mut self) {
+        if let Some(input) = &mut self.input {
+            input.pop();
+        }
+        self.update_display();
+    }
+
     pub fn update_input(&mut self, n: char) {
         if self.result.is_some() || self.error.is_some() {
             self.clear();
         }
         match self.input {
-            Some(ref mut input) => input.push(n),
+            Some(ref mut input) => {
+                // Limit to 15 significant figures.
+                let significant_figures_count = input
+                    .chars()
+                    .filter(|&c| c.is_ascii_digit() && c != '0')
+                    .count();
+                if significant_figures_count < 15 || input.contains('.') {
+                    input.push(n);
+                }
+            }
             None => self.input = Some(n.to_string()),
         }
         self.update_display();
@@ -134,5 +150,6 @@ impl CalcState {
                 }
             }
         }
+        self.update_display();
     }
 }

@@ -5,7 +5,7 @@ use color_eyre::Result;
 use crossterm::event::{self, KeyCode};
 use ratatui::{
     DefaultTerminal, Frame,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Position, Rect},
     style::{Color, Modifier, Style},
     text::Span,
     widgets::{Block, Borders, Padding, Paragraph},
@@ -29,30 +29,13 @@ impl App {
         }
     }
 
-    fn grid_location(button_type: &ButtonType) -> Option<(u16, u16)> {
-        match button_type {
-            ButtonType::Numeric(value) => Some((2, (*value).into())),
-            ButtonType::Operator(operator) => match operator {
-                Operator::Add => Some((3, 3)),
-                Operator::Subtract => Some((2, 3)),
-                Operator::Multiply => Some((1, 3)),
-                Operator::Divide => Some((0, 3)),
-            },
-            ButtonType::Clear => Some((0, 0)),
-            ButtonType::Invert => Some((0, 1)),
-            ButtonType::Percent => Some((0, 2)),
-            ButtonType::Decimal => Some((4, 1)),
-            ButtonType::Calculate => Some((4, 2)),
-        }
-    }
-
-    fn key_press_event(label: char) -> event::KeyEvent {
-        event::KeyEvent::new(event::KeyCode::Char(label), event::KeyModifiers::NONE)
-    }
-
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         let exit_event =
             event::KeyEvent::new(event::KeyCode::Char('c'), event::KeyModifiers::CONTROL);
+
+        // Enable mouse events
+        crossterm::terminal::enable_raw_mode()?;
+        crossterm::execute!(terminal.backend_mut(), crossterm::event::EnableMouseCapture)?;
 
         while !self.exit {
             terminal.draw(|frame| self.draw(frame))?;
@@ -62,7 +45,9 @@ impl App {
                 }
                 event::Event::Key(key_event) => {
                     self.selected_button = match key_event.code {
+                        KeyCode::Backspace => Some(ButtonType::Backspace),
                         KeyCode::Enter => Some(ButtonType::Calculate),
+                        KeyCode::Char('\n') => Some(ButtonType::Calculate),
                         KeyCode::Char(c) => Button::button_type(c),
                         _ => None,
                     };
@@ -70,10 +55,125 @@ impl App {
                         button_type.press(&mut self.state);
                     };
                 }
+                event::Event::Mouse(mouse_event) => {
+                    if let Some(button_type) = self.get_clicked_button(mouse_event) {
+                        self.selected_button = Some(button_type);
+                        button_type.press(&mut self.state);
+                    }
+                }
                 _ => (),
             }
         }
+
+        // Disable mouse events
+        crossterm::terminal::disable_raw_mode()?;
+        crossterm::execute!(
+            terminal.backend_mut(),
+            crossterm::event::DisableMouseCapture
+        )?;
+
         Ok(())
+    }
+
+    fn button_layout() -> [Vec<ButtonType>; 5] {
+        [
+            vec![
+                ButtonType::Clear,
+                ButtonType::Invert,
+                ButtonType::Percent,
+                ButtonType::Operator(Operator::Divide),
+            ],
+            vec![
+                ButtonType::Numeric(7),
+                ButtonType::Numeric(8),
+                ButtonType::Numeric(9),
+                ButtonType::Operator(Operator::Multiply),
+            ],
+            vec![
+                ButtonType::Numeric(4),
+                ButtonType::Numeric(5),
+                ButtonType::Numeric(6),
+                ButtonType::Operator(Operator::Subtract),
+            ],
+            vec![
+                ButtonType::Numeric(1),
+                ButtonType::Numeric(2),
+                ButtonType::Numeric(3),
+                ButtonType::Operator(Operator::Add),
+            ],
+            vec![
+                ButtonType::Numeric(0),
+                ButtonType::Decimal,
+                ButtonType::Calculate,
+            ],
+        ]
+    }
+
+    /// Determine which button was clicked based on mouse event and button layout
+    fn get_clicked_button(&self, mouse_event: event::MouseEvent) -> Option<ButtonType> {
+        // Only handle left mouse button clicks
+        if mouse_event.kind != event::MouseEventKind::Down(crossterm::event::MouseButton::Left) {
+            return None;
+        }
+
+        // Button rows (same as in render_buttons method)
+        let button_rows = Self::button_layout();
+
+        // Recreate the layout to check button areas
+        let main_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // Display area
+                Constraint::Min(10),   // Button grid
+            ])
+            .split(ratatui::layout::Rect::default()); // Placeholder, will be replaced in draw method
+
+        let button_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(20),
+                Constraint::Percentage(20),
+                Constraint::Percentage(20),
+                Constraint::Percentage(20),
+                Constraint::Percentage(20),
+            ])
+            .split(main_layout[1]); // Button grid area
+
+        let mouse_position = Position {
+            x: mouse_event.column,
+            y: mouse_event.row,
+        };
+
+        // Check if mouse click is within button grid
+        if !button_layout[0].contains(mouse_position) {
+            return None;
+        }
+
+        // Determine which row was clicked
+        for (row_index, row_area) in button_layout.iter().enumerate() {
+            if row_area.contains(mouse_position) {
+                let row_layout = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints(vec![
+                        Constraint::Ratio(
+                            1,
+                            button_rows[row_index].len() as u32
+                        );
+                        button_rows[row_index].len()
+                    ])
+                    .split(*row_area);
+
+                // Check which column was clicked
+                for (col_index, &button_type) in button_rows[row_index].iter().enumerate() {
+                    if row_layout[col_index].contains(mouse_position) {
+                        return Some(button_type);
+                    }
+                }
+                break;
+            }
+        }
+
+        None
     }
 
     fn draw(&self, frame: &mut Frame) {
@@ -88,10 +188,6 @@ impl App {
         self.render_display(frame, main_layout[0]);
         self.render_buttons(frame, main_layout[1]);
     }
-
-    //fn handle_events(&mut self) -> Result<()> {
-    //    todo!();
-    //}
 
     /// renders the display with the title
     fn render_display(&self, frame: &mut Frame, area: Rect) {
@@ -123,43 +219,7 @@ impl App {
             ])
             .split(area);
 
-        // Button rows
-        let button_rows = [
-            // Row 1: Clear, Invert, Percent, Divide
-            vec![
-                ButtonType::Clear,
-                ButtonType::Invert,
-                ButtonType::Percent,
-                ButtonType::Operator(Operator::Divide),
-            ],
-            // Row 2: 7, 8, 9, Multiply
-            vec![
-                ButtonType::Numeric(7),
-                ButtonType::Numeric(8),
-                ButtonType::Numeric(9),
-                ButtonType::Operator(Operator::Multiply),
-            ],
-            // Row 3: 4, 5, 6, Subtract
-            vec![
-                ButtonType::Numeric(4),
-                ButtonType::Numeric(5),
-                ButtonType::Numeric(6),
-                ButtonType::Operator(Operator::Subtract),
-            ],
-            // Row 4: 1, 2, 3, Add
-            vec![
-                ButtonType::Numeric(1),
-                ButtonType::Numeric(2),
-                ButtonType::Numeric(3),
-                ButtonType::Operator(Operator::Add),
-            ],
-            // Row 5: 0, Decimal, Calculate
-            vec![
-                ButtonType::Numeric(0),
-                ButtonType::Decimal,
-                ButtonType::Calculate,
-            ],
-        ];
+        let button_rows = Self::button_layout();
 
         // Render each row of buttons
         for (row_index, row_buttons) in button_rows.iter().enumerate() {
@@ -189,7 +249,15 @@ impl App {
                             0,           // right
                             top_padding, // top
                             0,           // bottom
-                        )),
+                        ))
+                        // Apply different background when button is selected
+                        .style(
+                            Style::default().bg(if self.selected_button == Some(button_type) {
+                                Color::DarkGray
+                            } else {
+                                Color::Reset
+                            }),
+                        ),
                 )
                 // center the paragraph horizontally
                 .centered();

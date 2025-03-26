@@ -1,13 +1,14 @@
 use crate::operations::Operator;
 use crate::state::CalcState;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ButtonType {
     Operator(Operator),
     Calculate,
     Decimal,
     Invert,
     Clear,
+    Backspace,
     Percent,
     Numeric(u8),
 }
@@ -16,6 +17,7 @@ impl ButtonType {
     pub fn press(self, state: &mut CalcState) {
         match self {
             ButtonType::Clear => state.clear(),
+            ButtonType::Backspace => state.backspace(),
             ButtonType::Numeric(n) => state.update_input((n + b'0') as char),
             ButtonType::Operator(op) => state.update_operator(op),
             ButtonType::Decimal => state.update_input('.'),
@@ -51,6 +53,7 @@ impl Button {
             ButtonType::Clear => 'C',
             ButtonType::Percent => '%',
             ButtonType::Numeric(n) => u8_to_char(n),
+            ButtonType::Backspace => '⌫',
         }
     }
 
