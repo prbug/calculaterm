@@ -52,7 +52,7 @@ impl Button {
             ButtonType::Invert => '±',
             ButtonType::Clear => 'C',
             ButtonType::Percent => '%',
-            ButtonType::Numeric(n) => u8_to_char(n),
+            ButtonType::Numeric(n) => Self::u8_to_char(n),
             ButtonType::Backspace => '⌫',
         }
     }
@@ -60,7 +60,6 @@ impl Button {
     pub fn button_type(label: char) -> Option<ButtonType> {
         match label {
             '+' => Some(ButtonType::Operator(Operator::Add)),
-
             '-' => Some(ButtonType::Operator(Operator::Subtract)),
             'x' => Some(ButtonType::Operator(Operator::Multiply)),
             '/' => Some(ButtonType::Operator(Operator::Divide)),
@@ -74,8 +73,8 @@ impl Button {
             _ => None,
         }
     }
-}
 
-pub fn u8_to_char(n: &u8) -> char {
-    (n + b'0') as char
+    fn u8_to_char(n: &u8) -> char {
+        (n + b'0') as char
+    }
 }
