@@ -13,7 +13,7 @@ pub struct CalcState {
 impl CalcState {
     pub fn new() -> CalcState {
         CalcState {
-            display: "0".to_string(),
+            display: "0".to_owned(),
             input: None,
             result: None,
             error: None,

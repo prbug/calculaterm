@@ -22,7 +22,7 @@ pub struct App {
 impl App {
     pub fn default() -> Self {
         Self {
-            title: " Calculaterm ".to_string(),
+            title: " Calculaterm ".to_owned(),
             state: CalcState::default(),
             exit: false,
             selected_button: None,
